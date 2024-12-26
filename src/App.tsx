@@ -1,135 +1,66 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 // import reactLogo from "./assets/react.svg";
 // import viteLogo from "/vite.svg";
 import "./App.css";
-import { w3cwebsocket as W3CWebSocket } from "websocket";
-import { styled } from "styled-components";
-import { ChatLog } from "./components/chat-log";
-
-// const client = new W3CWebSocket("https://test-wss-bkic.onrender.com/10000");
-const client = new W3CWebSocket("ws://127.0.0.1:8000");
+import { MainPage } from "./components/main-page";
+import { useClient } from "./hooks/use-client";
+import styled from "styled-components";
 
 function App() {
-  // const [count, setCount] = useState(0);
-  const [state, setState] = useState<{
-    userName: string;
-    isLoggedIn: boolean;
-    messages: any[];
-    searchVal: string;
-    users: any[];
-  }>({
-    userName: "",
-    isLoggedIn: false,
-    messages: [],
-    searchVal: "",
-    users: [],
-  });
-
+  const { messages, sendMessage, users, addUser, removeUser } = useClient();
+  const userId = localStorage.getItem("userId");
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(!!userId);
+  const [loginError, setLoginError] = useState<string | null>();
   const [userInput, setUserInput] = useState("");
 
-  const onButtonClick = (value: string) => {
-    client.send(
-      JSON.stringify({
-        type: "message",
-        msg: value,
-        user: state.userName,
-      })
-    );
-    setState({ ...state, searchVal: "" });
-  };
-
-  const updateCurrentUsers = (users: string[]) => {
-    client.send(
-      JSON.stringify({
-        type: "users",
-        users: users,
-      })
-    );
-  };
-
-  // useEffect(() => {
-  client.onopen = () => {
-    console.log("WebSocket Client Connected");
-  };
-  client.onmessage = (message) => {
-    const dataFromServer = JSON.parse(message.data as string);
-    console.log("got reply! ", dataFromServer);
-    if (dataFromServer.type === "message") {
-      setState({
-        ...state,
-        messages: [
-          ...state.messages,
-          {
-            msg: dataFromServer.msg,
-            user: dataFromServer.user,
-          },
-        ],
-      });
-    }
-
-    if (dataFromServer.type === "users") {
-      setState({ ...state, users: dataFromServer.users });
-    }
-  };
-  // }, []);
-  console.log(state.users);
   return (
-    <div className="main" id="wrapper">
-      {state.isLoggedIn ? (
-        <div>
-          <div className="title">
-            {state.users.map((user) => (
-              <div key={user}>{user}</div>
-            ))}
-          </div>
-
-          <ChatLog messages={state.messages} username={state.userName} />
-
-          <div className="bottom">
-            <Search
-              placeholder="input message and send"
-              // enterButton="Send"
-              value={state.searchVal}
-              // size="large"
-              onChange={(e) =>
-                setState({ ...state, searchVal: e.target.value })
-              }
-            />
-            <button onClick={() => onButtonClick(state.searchVal)} />
-          </div>
-        </div>
+    <AppWrapper>
+      {isLoggedIn && userId ? (
+        <MainPage
+          username={userId}
+          users={users}
+          messages={messages}
+          sendMessage={sendMessage}
+          removeUser={removeUser}
+        />
       ) : (
-        <div style={{ padding: "200px 40px" }}>
-          <Search
+        <LoginWrapper>
+          <input
             placeholder="Enter Username"
-            // enterButton="Login"
             onChange={(e) => setUserInput(e.target.value)}
           />
           <button
             onClick={() => {
-              setState({
-                ...state,
-                isLoggedIn: true,
-                userName: userInput,
-                users: [...state.users, userInput],
-              });
-              updateCurrentUsers([...state.users, userInput]);
+              if (users.includes(userInput)) {
+                setLoginError("Name already taken");
+                return;
+              }
+              localStorage.setItem("userId", userInput);
+              setIsLoggedIn(true);
+              addUser(userInput);
             }}
           >
             Log in
           </button>
-        </div>
+          {loginError && <span>{loginError}</span>}
+        </LoginWrapper>
       )}
-    </div>
+    </AppWrapper>
   );
 }
 
 export default App;
 
-const Search = styled.input``;
+const AppWrapper = styled.div`
+  width: 100%;
+  height: -webkit-fill-available;
+`;
 
-const Card = styled.div`
-  width: 300;
-  margin: "16px 4px 0 4px";
-  alignself: flex-end;
+const LoginWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
 `;
